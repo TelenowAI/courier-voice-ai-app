@@ -1,0 +1,42 @@
+{
+  "name": "@telenow/courier-app",
+  "version": "1.0.0",
+  "description": "Recover failed deliveries (NDR) and cut RTO with AI voice calls. When Shiprocket or Delhivery reports a non-delivery attempt, Telenow auto-phones the customer with a natural multilingual AI voice agent (English, Hindi, more) to reschedule or fix the address, writes the outcome back to the NDR record, and can ask the courier to re-attempt — no glue code. Free app; requires a Telenow account billed on usage.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "roundtrip": "node test/roundtrip.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^17.0.0",
+    "express": "^4.21.0"
+  },
+  "keywords": [
+    "telenow",
+    "voice-ai",
+    "ndr",
+    "non-delivery-report",
+    "failed-delivery",
+    "delivery-retry",
+    "rto",
+    "rto-reduction",
+    "shiprocket",
+    "delhivery",
+    "courier",
+    "shipping",
+    "logistics",
+    "ai-voice-agent",
+    "voice",
+    "outbound-calling",
+    "abandoned-cart",
+    "ecommerce",
+    "d2c",
+    "india"
+  ]
+}

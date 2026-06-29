@@ -1,0 +1,434 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Telenow Courier NDR — Settings</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #171a21;
+    --line: #262b35;
+    --text: #e7eaf0;
+    --muted: #9aa3b2;
+    --accent: #6c5ce7;
+    --ok: #2ecc71;
+    --err: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 28px 18px 80px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 18px; margin: 14px 0;
+  }
+  .card h2 { font-size: 16px; margin: 0 0 2px; }
+  .card .hint { color: var(--muted); font-size: 12.5px; margin: 0 0 12px; }
+  label { display: block; font-size: 12.5px; color: var(--muted); margin: 10px 0 4px; }
+  input[type="text"], input[type="password"], input[type="number"], select {
+    width: 100%; padding: 9px 11px; border-radius: 8px;
+    border: 1px solid var(--line); background: #0d0f14; color: var(--text); font-size: 14px;
+  }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row > div { flex: 1 1 160px; }
+  .toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+  .toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+  button {
+    background: var(--accent); color: #fff; border: 0; padding: 11px 18px;
+    border-radius: 9px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  button.secondary { background: #2a2f3a; }
+  button.danger { background: #3a2229; color: var(--err); border: 1px solid var(--err); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .bar {
+    position: sticky; bottom: 0; background: linear-gradient(180deg, transparent, var(--bg) 40%);
+    padding: 16px 0 0; display: flex; gap: 10px; align-items: center;
+  }
+  .msg { font-size: 13px; }
+  .msg.ok { color: var(--ok); }
+  .msg.err { color: var(--err); }
+  .quiet { margin-top: 6px; }
+  .quiet[hidden] { display: none; }
+  code { background: #0d0f14; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+  a { color: var(--accent); }
+  table.ndr { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.ndr th, table.ndr td {
+    text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;
+  }
+  table.ndr th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  table.ndr tr:last-child td { border-bottom: 0; }
+  .status { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .status.completed, .status.placed { color: var(--ok); border-color: var(--ok); }
+  .status.failed { color: var(--err); border-color: var(--err); }
+  .empty { color: var(--muted); font-size: 13px; }
+</style>
+
+<div class="wrap">
+  <h1>Telenow Courier NDR</h1>
+  <p class="sub">When Shiprocket or Delhivery reports a failed delivery (NDR), instantly call the customer with a Telenow AI agent to reschedule or fix the address — then record the outcome.</p>
+
+  <!-- Telenow connection -->
+  <div class="card">
+    <h2>Telenow connection</h2>
+    <p class="hint">Paste your Telenow API key (<code>vai_live_…</code>) from Telenow → Developers → API Keys. We validate it and show your org.</p>
+    <div class="row">
+      <div style="flex: 2 1 320px;">
+        <label>Telenow API key</label>
+        <input id="apiKey" type="password" placeholder="vai_live_…" autocomplete="off" />
+        <div id="keyStatus" class="msg" style="margin-top:6px;"></div>
+      </div>
+      <div style="display:flex; align-items:flex-end;">
+        <button class="secondary" type="button" id="validateKey">Validate key</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Store + re-attempt -->
+  <div class="card">
+    <h2>Store &amp; re-attempt</h2>
+    <p class="hint">The store name is passed to the agent (e.g. "calling on behalf of …"). Auto re-attempt asks the courier to retry delivery when the customer agrees — requires courier API credentials in your environment.</p>
+    <div class="row">
+      <div style="flex: 2 1 260px;">
+        <label>Store name</label>
+        <input id="storeName" type="text" placeholder="Acme Store" />
+      </div>
+      <div style="display:flex; align-items:flex-end;">
+        <label class="toggle" style="margin:0;">
+          <input id="autoReattempt" type="checkbox" />
+          <span>Auto re-attempt with the courier</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Automation renders here -->
+  <div id="automations"></div>
+
+  <!-- Courier NDR matchers -->
+  <div class="card">
+    <h2>Courier NDR matchers</h2>
+    <p class="hint">Which courier statuses count as a failed delivery (NDR). Comma-separated, case-insensitive substring match. Tune these to match how your courier account labels NDRs.</p>
+    <div class="row">
+      <div style="flex: 1 1 320px;">
+        <label>Shiprocket — <code>current_status</code> contains</label>
+        <input id="srStatuses" type="text" placeholder="ndr, undelivered, delivery attempt failed" />
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Delhivery — <code>StatusType</code> equals</label>
+        <input id="dlTypes" type="text" placeholder="UD" />
+      </div>
+      <div>
+        <label>Delhivery — NSL code / reason contains</label>
+        <input id="dlNsl" type="text" placeholder="ndr, consignee, refused, address" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent NDR calls -->
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <h2>Recent NDR calls</h2>
+        <p class="hint" style="margin-bottom:0;">Failed-delivery events received from your couriers and the calls we placed.</p>
+      </div>
+      <button class="secondary" type="button" id="refreshNdr">Refresh</button>
+    </div>
+    <div id="ndr" style="margin-top:12px;"></div>
+  </div>
+
+  <!-- Danger zone -->
+  <div class="card">
+    <h2>Danger zone</h2>
+    <p class="hint">Disconnect this app from Telenow (removes the result webhook subscription) and permanently delete ALL local data: your API key, settings, and the NDR records (which hold customer name &amp; phone). This cannot be undone.</p>
+    <button type="button" id="disconnect" class="danger">Disconnect &amp; purge data</button>
+    <span id="disconnectMsg" class="msg" style="margin-left:10px;"></span>
+  </div>
+
+  <div class="bar">
+    <button type="button" id="save">Save settings</button>
+    <span id="saveMsg" class="msg"></span>
+  </div>
+
+  <footer style="margin-top:28px; padding-top:14px; border-top:1px solid var(--line); color:var(--muted); font-size:12.5px;">
+    <a href="https://telenow.ai/privacy" target="_blank" rel="noopener">Privacy Policy</a>
+    &nbsp;·&nbsp;
+    <a href="https://telenow.ai/terms" target="_blank" rel="noopener">Terms of Service</a>
+    &nbsp;·&nbsp;
+    <a href="https://telenow.ai/#pricing" target="_blank" rel="noopener">Pricing</a>
+    &nbsp;·&nbsp;
+    <a href="mailto:support@telenow.ai">Support</a>
+    <div style="margin-top:6px;">Free app — voice calls are billed by your Telenow account. © Telenow AI.</div>
+  </footer>
+</div>
+
+<script type="module">
+  const qs = (s) => document.querySelector(s);
+  const apiKeyEl = qs('#apiKey');
+  const storeNameEl = qs('#storeName');
+  const autoReattemptEl = qs('#autoReattempt');
+  const srStatusesEl = qs('#srStatuses');
+  const dlTypesEl = qs('#dlTypes');
+  const dlNslEl = qs('#dlNsl');
+  const automationsEl = qs('#automations');
+  const ndrEl = qs('#ndr');
+
+  let MODEL = null; // server-provided settings (redacted key)
+  let CATALOG = []; // automation definitions (key/label/triggers)
+
+  function api(path, opts = {}) {
+    const url = new URL(path, location.origin);
+    return fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+    }).then(async (r) => {
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+      return data;
+    });
+  }
+
+  function automationCard(def, cfg) {
+    const q = cfg.quietHours || {};
+    return `
+      <div class="card" data-key="${def.key}">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h2>${def.label}</h2>
+            <p class="hint">Triggers: ${def.triggers.join(', ')}</p>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" data-field="enabled" ${cfg.enabled ? 'checked' : ''}/>
+            <span>Enabled</span>
+          </label>
+        </div>
+        <div class="row">
+          <div style="flex: 2 1 280px;">
+            <label>Telenow agent ID (UUID)</label>
+            <input type="text" data-field="agentId" value="${cfg.agentId || ''}" placeholder="agent uuid"/>
+          </div>
+          <div>
+            <label>Delay (minutes)</label>
+            <input type="number" min="0" max="10080" data-field="delayMinutes" value="${cfg.delayMinutes ?? 0}"/>
+          </div>
+        </div>
+        <label class="toggle quiet-toggle" style="margin-top:12px;">
+          <input type="checkbox" data-field="quietEnabled" ${q.enabled ? 'checked' : ''}/>
+          <span>Quiet hours (don't call inside this local window)</span>
+        </label>
+        <div class="row quiet" ${q.enabled ? '' : 'hidden'}>
+          <div><label>From</label><input type="text" data-field="quietStart" value="${q.start || '21:00'}" placeholder="21:00"/></div>
+          <div><label>To</label><input type="text" data-field="quietEnd" value="${q.end || '09:00'}" placeholder="09:00"/></div>
+          <div><label>Timezone (IANA)</label><input type="text" data-field="quietTz" value="${q.timezone || 'Asia/Kolkata'}"/></div>
+        </div>
+      </div>`;
+  }
+
+  function render() {
+    automationsEl.innerHTML = CATALOG.map((def) =>
+      automationCard(def, MODEL.automations[def.key] || {}),
+    ).join('');
+    automationsEl.querySelectorAll('.card').forEach((card) => {
+      const qt = card.querySelector('[data-field="quietEnabled"]');
+      const quiet = card.querySelector('.quiet');
+      qt.addEventListener('change', () => (quiet.hidden = !qt.checked));
+    });
+  }
+
+  // Mask the middle of a phone number so we don't render full PII in the table.
+  function maskPhone(p) {
+    if (!p) return '—';
+    return p.length < 6 ? '•••' : `${p.slice(0, 3)}•••${p.slice(-3)}`;
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+  }
+
+  // Build the NDR table with DOM nodes + textContent (never innerHTML for data).
+  function renderNdr(rows) {
+    ndrEl.textContent = '';
+    if (!rows || rows.length === 0) {
+      const p = document.createElement('p');
+      p.className = 'empty';
+      p.textContent = 'No NDR calls yet. They appear here when a courier reports a failed delivery.';
+      ndrEl.appendChild(p);
+      return;
+    }
+    const table = document.createElement('table');
+    table.className = 'ndr';
+    const thead = document.createElement('thead');
+    const htr = document.createElement('tr');
+    for (const h of ['Created', 'Courier', 'AWB', 'Customer', 'Phone', 'Attempt', 'Status', 'Disposition']) {
+      const th = document.createElement('th');
+      th.textContent = h;
+      htr.appendChild(th);
+    }
+    thead.appendChild(htr);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    for (const row of rows) {
+      const tr = document.createElement('tr');
+      const cells = [
+        fmtDate(row.createdAt),
+        row.courier || '—',
+        row.awb || '—',
+        row.customerName || '—',
+        maskPhone(row.phone),
+        row.attempt == null ? '—' : String(row.attempt),
+        null, // status pill
+        row.disposition || '—',
+      ];
+      cells.forEach((val, i) => {
+        const td = document.createElement('td');
+        if (i === 6) {
+          const span = document.createElement('span');
+          const status = String(row.status || 'queued');
+          span.className = `status ${status}`;
+          span.textContent = status;
+          td.appendChild(span);
+        } else {
+          td.textContent = val;
+          td.title = val; // full value on hover (cells are ellipsized)
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    ndrEl.appendChild(table);
+  }
+
+  async function loadNdr() {
+    try {
+      const data = await api('/api/ndr');
+      renderNdr(data.ndr);
+    } catch (e) {
+      ndrEl.textContent = '';
+      const p = document.createElement('p');
+      p.className = 'empty';
+      p.textContent = `Failed to load NDR calls: ${e.message}`;
+      ndrEl.appendChild(p);
+    }
+  }
+
+  function collect() {
+    const automations = {};
+    automationsEl.querySelectorAll('.card[data-key]').forEach((card) => {
+      const key = card.getAttribute('data-key');
+      const get = (f) => card.querySelector(`[data-field="${f}"]`);
+      automations[key] = {
+        enabled: get('enabled').checked,
+        agentId: get('agentId').value.trim(),
+        delayMinutes: Number(get('delayMinutes').value) || 0,
+        quietHours: {
+          enabled: get('quietEnabled').checked,
+          start: get('quietStart').value.trim() || '21:00',
+          end: get('quietEnd').value.trim() || '09:00',
+          timezone: get('quietTz').value.trim() || 'Asia/Kolkata',
+        },
+      };
+    });
+    const patch = {
+      storeName: storeNameEl.value.trim(),
+      autoReattempt: autoReattemptEl.checked,
+      automations,
+      couriers: {
+        shiprocket: { ndrStatuses: srStatusesEl.value },
+        delhivery: { ndrStatusTypes: dlTypesEl.value, ndrNslCodes: dlNslEl.value },
+      },
+    };
+    const typed = apiKeyEl.value.trim();
+    if (typed && !typed.includes('…')) patch.telenowApiKey = typed;
+    return patch;
+  }
+
+  async function load() {
+    const data = await api('/api/settings');
+    MODEL = data.settings;
+    CATALOG = data.catalog;
+    storeNameEl.value = MODEL.storeName || '';
+    autoReattemptEl.checked = Boolean(MODEL.autoReattempt);
+    srStatusesEl.value = (MODEL.couriers?.shiprocket?.ndrStatuses || []).join(', ');
+    dlTypesEl.value = (MODEL.couriers?.delhivery?.ndrStatusTypes || []).join(', ');
+    dlNslEl.value = (MODEL.couriers?.delhivery?.ndrNslCodes || []).join(', ');
+    if (MODEL.telenowApiKeySet) apiKeyEl.placeholder = MODEL.telenowApiKey || 'key set ••••';
+    render();
+    loadNdr();
+  }
+
+  qs('#refreshNdr').addEventListener('click', loadNdr);
+
+  qs('#validateKey').addEventListener('click', async () => {
+    const key = apiKeyEl.value.trim();
+    const status = qs('#keyStatus');
+    status.textContent = 'Validating…';
+    status.className = 'msg';
+    try {
+      const patch = key && !key.includes('…') ? { telenowApiKey: key } : {};
+      const res = await api('/api/validate-key', { method: 'POST', body: JSON.stringify(patch) });
+      status.textContent = `Connected: ${res.org_name} (role ${res.key_role})`;
+      status.className = 'msg ok';
+    } catch (e) {
+      status.textContent = `Invalid: ${e.message}`;
+      status.className = 'msg err';
+    }
+  });
+
+  qs('#save').addEventListener('click', async () => {
+    const btn = qs('#save');
+    const msg = qs('#saveMsg');
+    btn.disabled = true;
+    msg.textContent = 'Saving…';
+    msg.className = 'msg';
+    try {
+      const res = await api('/api/settings', { method: 'POST', body: JSON.stringify(collect()) });
+      MODEL = res.settings;
+      msg.textContent = res.hookStatus ? `Saved. ${res.hookStatus}` : 'Saved.';
+      msg.className = 'msg ok';
+      apiKeyEl.value = '';
+      if (MODEL.telenowApiKeySet) apiKeyEl.placeholder = MODEL.telenowApiKey || 'key set ••••';
+    } catch (e) {
+      msg.textContent = `Error: ${e.message}`;
+      msg.className = 'msg err';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  qs('#disconnect').addEventListener('click', async () => {
+    if (!confirm('Disconnect from Telenow and permanently delete ALL local data (API key, settings, and NDR records with customer PII)? This cannot be undone.')) {
+      return;
+    }
+    const btn = qs('#disconnect');
+    const msg = qs('#disconnectMsg');
+    btn.disabled = true;
+    msg.textContent = 'Disconnecting…';
+    msg.className = 'msg';
+    try {
+      await api('/api/disconnect', { method: 'POST', body: JSON.stringify({}) });
+      msg.textContent = 'Disconnected. All local data purged.';
+      msg.className = 'msg ok';
+      apiKeyEl.value = '';
+      await load();
+    } catch (e) {
+      msg.textContent = `Error: ${e.message}`;
+      msg.className = 'msg err';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  load().catch((e) => {
+    qs('#saveMsg').textContent = `Failed to load: ${e.message}`;
+    qs('#saveMsg').className = 'msg err';
+  });
+</script>
