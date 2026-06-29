@@ -23,7 +23,6 @@
 - [↩️ Optional re-attempt](#optional-re-attempt)
 - [🪝 Telenow result webhooks (inbound)](#telenow-result-webhooks-inbound)
 - [🔒 Security notes](#-security-notes)
-- [📜 Listing copy (free app)](#listing-copy-free-app)
 - [✅ Production checklist](#-production-checklist)
 - [🧪 Local round-trip test](#-local-round-trip-test)
 - [🗂️ Project layout](#️-project-layout)
@@ -187,12 +186,6 @@ We verify by recomputing the HMAC over the **raw body** with that secret (**HEX*
 - **Never log the API key.** The Telenow `X-API-Key` is never logged or sent to the browser — the settings page only ever sees a masked hint. Phone numbers are masked in logs and in the dashboard.
 - **Quiet hours.** Calls are suppressed inside the automation's local quiet-hours window (and re-checked at fire time for delayed calls).
 - **Data purge.** NDR records hold customer PII (name + phone). To wipe everything (settings incl. the API key, the call map, the hook, dedupe marks, and all NDR records), use **Disconnect & purge data** in `/app` (`POST /api/disconnect`, which also unsubscribes the Telenow result webhook). For an ops-level purge, deleting the `DATA_DIR` directory (default `./data`) removes the entire on-disk store; restart the app afterwards.
-
-## Listing copy (free app)
-
-Because the service connects to a paid external service, any listing must disclose it:
-
-> This app is free to install. It connects to Telenow (https://telenow.ai), a separate AI voice-calling service that requires its own account. Telenow charges for call usage on its own platform per its pricing (https://telenow.ai/#pricing); these charges are not processed by your courier. The app sends your customer's phone number and the shipment context you enable to Telenow to place calls — no payment data is sent. Telenow's Terms (https://telenow.ai/terms) and Privacy Policy (https://telenow.ai/privacy) apply.
 
 ## ✅ Production checklist
 
